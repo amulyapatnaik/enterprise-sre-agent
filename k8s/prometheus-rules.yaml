@@ -1,0 +1,72 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: enterprise-sre-agent-alerts
+  labels:
+    app.kubernetes.io/name: enterprise-sre-agent
+spec:
+  groups:
+    - name: kubernetes.node-and-container-health
+      rules:
+        - alert: ContainerCPUThrottlingHigh
+          expr: |
+            (
+              sum by (namespace, pod, container) (
+                rate(container_cpu_cfs_throttled_periods_total{container!="",pod!=""}[5m])
+              )
+              /
+              sum by (namespace, pod, container) (
+                rate(container_cpu_cfs_periods_total{container!="",pod!=""}[5m])
+              )
+            ) > 0.25
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Container CPU throttling is above 25%
+            description: >-
+              {{ $labels.namespace }}/{{ $labels.pod }} container
+              {{ $labels.container }} has had more than 25% of CPU periods
+              throttled for 10 minutes.
+        - alert: ContainerMemorySaturationHigh
+          expr: |
+            (
+              sum by (namespace, pod, container) (
+                container_memory_working_set_bytes{container!="",pod!=""}
+              )
+              /
+              sum by (namespace, pod, container) (
+                container_spec_memory_limit_bytes{container!="",pod!=""}
+              )
+            ) > 0.85
+            and on (namespace, pod, container)
+            sum by (namespace, pod, container) (
+              container_spec_memory_limit_bytes{container!="",pod!=""}
+            ) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Container memory usage is above 85% of its limit
+            description: >-
+              {{ $labels.namespace }}/{{ $labels.pod }} container
+              {{ $labels.container }} is at risk of an OOM kill (Exit Code 137)
+              if its working set continues to grow.
+    - name: enterprise-sre-agent.ai-triage
+      rules:
+        - alert: SREAgentLLMInferenceSlow
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(sre_agent_llm_inference_seconds_bucket[5m])
+              )
+            ) > 2.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: SRE agent LLM inference p95 is above 2.5 seconds
+            description: >-
+              The 5-minute p95 of SRE agent diagnosis latency has exceeded
+              2.5 seconds for 10 minutes.

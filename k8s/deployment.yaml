@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enterprise-sre-agent
+  labels:
+    app.kubernetes.io/name: enterprise-sre-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: enterprise-sre-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: enterprise-sre-agent
+    spec:
+      containers:
+        - name: enterprise-sre-agent
+          image: enterprise-sre-agent:latest
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn"]
+          args: ["app:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enterprise-sre-agent
+  labels:
+    app.kubernetes.io/name: enterprise-sre-agent
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: enterprise-sre-agent
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: enterprise-sre-agent
+  labels:
+    app.kubernetes.io/name: enterprise-sre-agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: enterprise-sre-agent
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

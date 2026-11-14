@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu "torch==2.10.0+cpu"
+          python -m pip install -r requirements.txt
+
+      - name: Run agent tests
+        run: python -m unittest test_agent -v
+
+      - name: Validate Kubernetes YAML
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          files = sorted(
+              path for path in Path("k8s").rglob("*")
+              if path.suffix in {".yaml", ".yml"}
+          )
+          if not files:
+              raise SystemExit("No YAML files found under k8s/")
+
+          for path in files:
+              documents = list(yaml.safe_load_all(path.read_text(encoding="utf-8")))
+              if not documents or any(not isinstance(document, dict) for document in documents):
+                  raise SystemExit(f"{path} contains an empty or invalid YAML document")
+              print(f"Validated {path} ({len(documents)} document(s))")
+          PY
