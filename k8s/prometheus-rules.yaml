@@ -70,3 +70,18 @@ spec:
             description: >-
               The 5-minute p95 of SRE agent diagnosis latency has exceeded
               2.5 seconds for 10 minutes.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: enterprise-sre-agent
+  labels:
+    app.kubernetes.io/name: enterprise-sre-agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: enterprise-sre-agent
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
