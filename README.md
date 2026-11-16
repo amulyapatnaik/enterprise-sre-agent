@@ -1,15 +1,10 @@
 # Enterprise SRE Agent
 
-**Runbook-grounded incident triage with Kubernetes and Prometheus observability.**
+Runbook-grounded Kubernetes incident triage service with Prometheus latency telemetry and resource saturation alerts.
 
-This project combines a small FastAPI service, semantic runbook retrieval, and
-metrics for both retrieval and diagnosis. It is designed to demonstrate applied
-AI/RAG, MLOps, SRE, and customer-facing platform engineering.
+This microservice pairs semantic vector retrieval (**ChromaDB**) with grounded LLM synthesis (**Groq / Ollama**) to accelerate Level-1/Level-2 incident triage. It embeds incoming alert logs, retrieves the closest Standard Operating Procedure (SOP) from `runbooks/`, and returns a structured JSON Root Cause Analysis (`root_cause`, `immediate_triage_commands`, and `permanent_remediation`) alongside stage-level Prometheus latency histograms.
 
-> **Scope:** The agent recommends diagnostic and remediation steps; it does not
-> execute commands or change a cluster. Prometheus rules are included, but
-> Alertmanager-to-agent delivery is not wired yet. Alerts are submitted to
-> `/triage` manually or by an external caller.
+**Operational Scope:** Advisory-only triage service—recommends diagnostic and remediation commands without mutating cluster state. Kubernetes `PrometheusRule` and `ServiceMonitor` manifests are included; Alertmanager webhook routing to `POST /triage` is decoupled for cluster-specific monitoring namespaces.
 
 ## At a glance
 
